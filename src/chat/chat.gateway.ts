@@ -3,12 +3,13 @@
 import { Logger } from '@nestjs/common';
 import { OnGatewayConnection, OnGatewayDisconnect, OnGatewayInit, SubscribeMessage, WebSocketGateway, WebSocketServer } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
+import { ChatsRepository } from './chat.repository';
 
 @WebSocketGateway(8001, { cors: { origin: "*" } })
 export class ChatGateway implements OnGatewayInit, OnGatewayConnection, OnGatewayDisconnect {
   @WebSocketServer() server: Server;
   private logger: Logger = new Logger('ChatGateway');
-  
+  constructor(private chatRepository: ChatsRepository){}
   // Armazenando os clientes conectados
   private clients = new Map<string, { socket: Socket, role: 'client' | 'attendant', room?: string }>();
 
@@ -36,12 +37,19 @@ export class ChatGateway implements OnGatewayInit, OnGatewayConnection, OnGatewa
   }
 
   @SubscribeMessage('msgToServer')
-  handleMessage(client: Socket, payload: string): void {
+  async handleMessage(client: Socket, payload: string) {
     const clientInfo = this.clients.get(client.id);
+    const chatExists = await this.chatRepository.findOne(client.id)
+    if (chatExists) {
+      await this.chatRepository.update(chatExists.id, payload)
+    }else{
+      await this.chatRepository.create(client.id, payload)
+    }
+    
     if (clientInfo && clientInfo.role === 'client') {
       this.logger.log(`Mensagem recebida do cliente ${client.id}: ${payload}`);
       const attendant = Array.from(this.clients.values()).find(info => info.role === 'attendant');
-      if (attendant) {
+      if (attendant) {        
         attendant.socket.emit('msgToAttendant', { message: payload, clientId: client.id });
       }
     }
