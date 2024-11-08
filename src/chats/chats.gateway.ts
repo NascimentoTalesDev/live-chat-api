@@ -11,6 +11,7 @@ import { Server, Socket } from 'socket.io';
 import { ChatsRepository } from './chats.repository';
 import { UsersRepository } from 'src/users/users.repository';
 import { MessagesRepository } from 'src/messages/messages.repository';
+import { Chat, User } from '@prisma/client';
 
 interface Payload {
   newMessage: string;
@@ -19,8 +20,7 @@ interface Payload {
 
 @WebSocketGateway(8001, { cors: { origin: '*' } })
 export class ChatGateway
-  implements OnGatewayInit, OnGatewayConnection, OnGatewayDisconnect
-{
+  implements OnGatewayInit, OnGatewayConnection, OnGatewayDisconnect {
   @WebSocketServer() server: Server;
   private logger: Logger = new Logger('ChatGateway');
 
@@ -28,7 +28,7 @@ export class ChatGateway
     private chatRepository: ChatsRepository,
     private usersRepository: UsersRepository,
     private messagesRepository: MessagesRepository,
-  ) {}
+  ) { }
 
   // Armazenando os clientes conectados
   private clients = new Map<
@@ -86,13 +86,18 @@ export class ChatGateway
 
     const userExists = await this.usersRepository.findByPhone(payload.phone);
     let chat;
+    let user: User
 
     if (userExists) {
-      chat = await this.chatRepository.findOne(userExists.id);
+
+      user = await this.usersRepository.findByPhone(payload.phone);
+
+      chat = await this.chatRepository.findByUser(user.id);
       if (!chat) {
-        chat = await this.chatRepository.create(userExists.id);
+        chat = await this.chatRepository.create(user.id);
       }
-      await this.messagesRepository.create(chat.id, userExists.id, payload.newMessage);
+
+      await this.messagesRepository.create(chat.id, payload.newMessage, clientInfo.role);
 
       // Associar chatId, name e última mensagem ao cliente na estrutura `clients`
       if (clientInfo && clientInfo.role === 'client') {
@@ -138,11 +143,18 @@ export class ChatGateway
   }
 
   @SubscribeMessage('msgToClient')
-  handleAttendantMessage(
+  async handleAttendantMessage(
     client: Socket,
     payload: { message: string; clientId: string },
-  ): void {
+  ) {
+    console.log(payload.clientId);
+    let chat;
+    chat = await this.chatRepository.findById(payload.clientId);
+        
+    await this.messagesRepository.create(chat.id, payload.message, "attendant");
+
     const attendantInfo = this.clients.get(client.id);
+    
     if (attendantInfo && attendantInfo.role === 'attendant') {
       const clientInfo = this.clients.get(payload.clientId);
       if (clientInfo && clientInfo.role === 'client') {

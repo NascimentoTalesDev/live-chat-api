@@ -5,61 +5,56 @@ import { PrismaService } from "src/prisma/prisma.service";
 export class MessagesRepository {
   constructor(private prismaService: PrismaService) { }
 
-  async create(chatId: string, userId: string, msg: string) {
+  async create(chatId: string, text: string, sender: string) {
     const messageCreated = await this.prismaService.message.create({
       data: {
         chatId,
-        userId,
-        text: msg,
+        text,
+        sender
       }
     })
     return messageCreated
   }
 
-  async update(id: string, userId: string, msg: string) {
-    const messageUpdated = await this.prismaService.message.update({
-      where:{
-        id
-      },
-      data:{
-        text:msg
-      }  
-    });
+  // async update(id: string, userId: string, msg: string) {
+  //   const messageUpdated = await this.prismaService.message.update({
+  //     where:{
+  //       id
+  //     },
+  //     data:{
+  //       text:msg
+  //     }  
+  //   });
 
-    return messageUpdated;
-  }
+  //   return messageUpdated;
+  // }
 
-  async findOne(userId: string) {
-    const chatFinded = await this.prismaService.chat.findFirst({
-      where: {
-        OR:[
-          {
-            senderId: userId
-          },
-          {
-            recieverId: userId
-          },
-        ]
-      }
-    })
-    return chatFinded
-  }
+  // async findOne(userId: string) {
+  //   const chatFinded = await this.prismaService.chat.findFirst({
+  //     where: {
+  //       OR:[
+  //         {
+  //           senderId: userId
+  //         },
+  //         {
+  //           recieverId: userId
+  //         },
+  //       ]
+  //     }
+  //   })
+  //   return chatFinded
+  // }
 
-  findAll(client: string) {
-    return "findAll"
-  }
-
-  async findAllByClient(client: string) {
+  async findAll(chatId: string) {
     try {
-      const allMessageClient = await this.prismaService.message.findMany({
+      const messages = await this.prismaService.message.findMany({
         where: {
-          userId: client
+          chatId
         }
       })
-      return allMessageClient
+      return messages
     } catch (error) {
       console.log(error);
-
     }
   }
 }

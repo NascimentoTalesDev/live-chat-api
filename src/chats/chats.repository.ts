@@ -8,88 +8,61 @@ export class ChatsRepository {
   async create(userId: string) {
     const chatCreated = await this.prismaService.chat.create({
       data: {
-        senderId: userId,
-      }
-    })
-    return chatCreated
-  }
-
-  async update() {
-    // const messageUpdated = await this.prismaService.chat.update({
-    //   where:{
-    //     id:  chatId
-    //   },
-    //   data:{
-        
-    //   }
-    // });
-
-    // return messageUpdated;
+        userId
+      },
+    });
+    return chatCreated;
   }
 
   async findOne(id: string) {
-    const chat = await this.prismaService.chat.findFirst({
-      where: {
-        id
-      },
-      include:{
-        messages: true
-      }
-    })
-    console.log("CHAT", chat);
-    
-    return chat?.messages
-  }
-
-  async findBySenderOrReciver(userId: string) {
-    const chatFinded = await this.prismaService.chat.findFirst({
-      where: {
-        OR:[
-          {
-            senderId: userId
-          },
-          {
-            recieverId: userId
-          },
-        ]
-      }
-    })
-    return chatFinded
-  }
-
-  findAll(client: string) {
-    return "findAll"
-  }
-
-  async findAllById(id: string) {
+    // Usando findUnique para garantir que estamos buscando um único chat
     try {
-      const allMessage = await this.prismaService.chat.findMany({
+      const chat = await this.prismaService.chat.findFirst({
         where: {
-          id
+          id,
         },
-        include:{
+        include: {
           messages: true
         }
-      })
-      console.log("FIND", allMessage);
-      
-      return allMessage
+      });
+      return chat?.messages
     } catch (error) {
       console.log(error);
-
     }
   }
-  async findAllByClient(client: string) {
+
+  async findById(id: string) {
+    // Usando findUnique para garantir que estamos buscando um único chat
     try {
-      const allMessageClient = await this.prismaService.message.findMany({
+      const chat = await this.prismaService.chat.findUnique({
         where: {
-          userId: client
+          id,
         }
-      })
-      return allMessageClient
+      });
+      return chat
     } catch (error) {
       console.log(error);
-
     }
   }
+
+  async findByUser(id: string) {
+    // Usando findUnique para garantir que estamos buscando um único chat
+    try {
+      const chat = await this.prismaService.chat.findFirst({
+        where: {
+          userId: id,
+        },
+        include: {
+          messages: true
+        }
+      });
+      console.log(chat);
+      return chat
+    } catch (error) {
+      console.log(error);
+      
+    }
+  }
+
+
 }

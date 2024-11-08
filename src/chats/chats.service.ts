@@ -9,9 +9,9 @@ export class ChatsService {
     return 'This action adds a new chat';
   }
 
-  async findAllByClient(clientId: string) {
-    return await this.chatsRepository.findAllByClient(clientId);
-  }
+  // async findAllByClient(clientId: string) {
+  //   return await this.chatsRepository.findAllByClient(clientId);
+  // }
 
   async findOne(id: string) {
     return await this.chatsRepository.findOne(id);

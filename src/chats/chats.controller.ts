@@ -15,11 +15,6 @@ export class ChatsController {
     return this.chatsService.findOne(id);
   }
 
-  @Get('all/:id')
-  async findAllByClient(@Param('id') id: string) {
-    return await this.chatsService.findAllByClient(id);
-  }
-
   @Patch(':id')
   update(@Param('id') id: string) {
     return this.chatsService.update(id);
