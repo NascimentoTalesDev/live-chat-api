@@ -7,14 +7,17 @@ import { UpdateChatDto } from './dto/update-chat.dto';
 export class ChatsController {
   constructor(private readonly chatsService: ChatsService) {}
 
+  
+  @Get(':id')
+  findOne(@Param('id') id: string) {
+    console.log("FINDONE", id);
+    
+    return this.chatsService.findOne(id);
+  }
+
   @Get('all/:id')
   async findAllByClient(@Param('id') id: string) {
     return await this.chatsService.findAllByClient(id);
-  }
-
-  @Get(':id')
-  findOne(@Param('id') id: string) {
-    return this.chatsService.findOne(+id);
   }
 
   @Patch(':id')

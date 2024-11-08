@@ -9,23 +9,60 @@ import {
 } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
 import { ChatsRepository } from './chats.repository';
+import { UsersRepository } from 'src/users/users.repository';
+import { MessagesRepository } from 'src/messages/messages.repository';
+
+interface Payload {
+  newMessage: string;
+  phone: string;
+}
 
 @WebSocketGateway(8001, { cors: { origin: '*' } })
-export class ChatGateway implements OnGatewayInit, OnGatewayConnection, OnGatewayDisconnect {
+export class ChatGateway
+  implements OnGatewayInit, OnGatewayConnection, OnGatewayDisconnect
+{
   @WebSocketServer() server: Server;
   private logger: Logger = new Logger('ChatGateway');
-  constructor(private chatRepository: ChatsRepository) { }
+
+  constructor(
+    private chatRepository: ChatsRepository,
+    private usersRepository: UsersRepository,
+    private messagesRepository: MessagesRepository,
+  ) {}
+
   // Armazenando os clientes conectados
-  private clients = new Map<string, { socket: Socket; role: 'client' | 'attendant'; room?: string }>();
+  private clients = new Map<
+    string,
+    {
+      socket: Socket;
+      role: 'client' | 'attendant';
+      chatId?: string;
+      name?: string;
+      lastMessage?: string;
+    }
+  >();
   private clientsWithMessages = new Set<string>(); // Armazena os IDs dos clientes que já enviaram mensagens
 
   afterInit(server: Server) {
     this.logger.log('WebSocket Gateway Initialized');
   }
 
+  @SubscribeMessage('msgToInitChat')
+  async initChat(client: Socket, payload: { name: string; phone: string }) {
+    console.log(payload);
+    const userExists = await this.usersRepository.findByPhone(payload.phone);
+    if (!userExists) {
+      await this.usersRepository.create(payload);
+    }
+    // Atualiza o `client` com o `name` ao registrar o cliente
+    const clientInfo = this.clients.get(client.id);
+    if (clientInfo) {
+      this.clients.set(client.id, { ...clientInfo, name: payload.name });
+    }
+  }
+
   handleConnection(client: Socket) {
     this.logger.log(`Client connected: ${client.id}`);
-
     const role = client.handshake.query.role; // 'attendant' ou 'client'
 
     if (role === 'attendant') {
@@ -42,40 +79,60 @@ export class ChatGateway implements OnGatewayInit, OnGatewayConnection, OnGatewa
     this.clients.delete(client.id);
   }
 
-
   @SubscribeMessage('msgToServer')
-  async handleMessage(client: Socket, payload: string) {
+  async handleMessage(client: Socket, payload: Payload) {
     const clientInfo = this.clients.get(client.id);
-    const chatExists = await this.chatRepository.findOne(client.id);
-    if (chatExists) {
-      await this.chatRepository.update(chatExists.id, payload);
-    } else {
-      await this.chatRepository.create(client.id, payload);
-    }
+    console.log(payload);
 
-    if (clientInfo && clientInfo.role === 'client') {
-      this.logger.log(`Mensagem recebida do cliente ${client.id}: ${payload}`);
+    const userExists = await this.usersRepository.findByPhone(payload.phone);
+    let chat;
 
-      // Adiciona o cliente ao conjunto de clientes com mensagens enviadas
-      this.clientsWithMessages.add(client.id);
+    if (userExists) {
+      chat = await this.chatRepository.findOne(userExists.id);
+      if (!chat) {
+        chat = await this.chatRepository.create(userExists.id);
+      }
+      await this.messagesRepository.create(chat.id, userExists.id, payload.newMessage);
 
-      const attendant = Array.from(this.clients.values()).find(
-        (info) => info.role === 'attendant',
-      );
-      if (attendant) {
-        attendant.socket.emit('msgToAttendant', {
-          message: payload,
-          clientId: client.id,
-        });
+      // Associar chatId, name e última mensagem ao cliente na estrutura `clients`
+      if (clientInfo && clientInfo.role === 'client') {
+        const updatedClientInfo = {
+          ...clientInfo,
+          chatId: chat.id,
+          lastMessage: payload.newMessage,
+        };
+        this.clients.set(client.id, updatedClientInfo);
+        // Adiciona o cliente ao conjunto de clientes com mensagens enviadas
+        this.clientsWithMessages.add(client.id);
 
-        // Filtra apenas os clientes que já enviaram mensagens
-        const connectedClients = Array.from(this.clients.values())
-          .filter((info) => info.role === 'client' && this.clientsWithMessages.has(info.socket.id))
-          .map((info) => ({
-            id: info.socket.id,
-            name: `Cliente ${info.socket.id}`,
-          }));
-        attendant.socket.emit('connectedClients', connectedClients);
+        const attendant = Array.from(this.clients.values()).find(
+          (info) => info.role === 'attendant',
+        );
+        if (attendant) {
+          attendant.socket.emit('msgToAttendant', {
+            message: payload,
+            clientId: client.id,
+            chatId: chat.id,
+            name: updatedClientInfo.name || `Cliente ${client.id}`,
+            lastMessage: payload.newMessage, // Adiciona a última mensagem
+          });
+
+          // Filtra apenas os clientes que já enviaram mensagens
+          const connectedClients = Array.from(this.clients.values())
+            .filter(
+              (info) =>
+                info.role === 'client' &&
+                this.clientsWithMessages.has(info.socket.id),
+            )
+            .map((info) => ({
+              id: info.socket.id,
+              name: info.name || `Cliente ${info.socket.id}`,
+              chatId: info.chatId ?? 'Desconhecido', // Usa o chatId armazenado na estrutura `clients`
+              lastMessage: info.lastMessage ?? '', // Envia a última mensagem, se disponível
+            }));
+
+          attendant.socket.emit('connectedClients', connectedClients);
+        }
       }
     }
   }
@@ -93,18 +150,4 @@ export class ChatGateway implements OnGatewayInit, OnGatewayConnection, OnGatewa
       }
     }
   }
-
-  // Nova função para obter os clientes conectados
-  // @SubscribeMessage('getConnectedClients')
-  // getConnectedClients(client: Socket): void {
-  // Filtra apenas os clientes (não atendentes)
-  // const connectedClients = Array.from(this.clients.values())
-  //   .filter((info) => info.role === 'client')
-  //   .map((info) => ({
-  //     id: info.socket.id,
-  //     name: `Cliente ${info.socket.id}`,
-  //   }));
-
-  // client.emit('connectedClients', connectedClients);
-  // }
 }
