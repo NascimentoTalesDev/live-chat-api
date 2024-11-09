@@ -31,6 +31,7 @@ export class MessagesRepository {
         ]
       },
       distinct: ['text'],
+      take: 10,
       orderBy: {
         text: 'asc'
       } 

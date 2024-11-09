@@ -14,9 +14,7 @@ export class MessagesController {
   }
 
   @Get()
-  async findAll(@Query() query: ExpressQuery) {
-    console.log(query);
-    
+  async findAll(@Query() query: ExpressQuery) {    
     return await this.messagesService.findAll(query);
   }
 

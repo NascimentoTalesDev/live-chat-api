@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { ChatsRepository } from './chats.repository';
+import { Query } from 'express-serve-static-core'
 
 @Injectable()
 export class ChatsService {
@@ -9,9 +10,9 @@ export class ChatsService {
     return 'This action adds a new chat';
   }
 
-  // async findAllByClient(clientId: string) {
-  //   return await this.chatsRepository.findAllByClient(clientId);
-  // }
+  async findAll(query: Query) {
+    return await this.chatsRepository.findAll(query);
+  }
 
   async findOne(id: string) {
     return await this.chatsRepository.findOne(id);

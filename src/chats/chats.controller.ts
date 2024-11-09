@@ -1,17 +1,18 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete } from '@nestjs/common';
+import { Controller, Get, Post, Body, Patch, Param, Delete, Query } from '@nestjs/common';
 import { ChatsService } from './chats.service';
-import { CreateChatDto } from './dto/create-chat.dto';
-import { UpdateChatDto } from './dto/update-chat.dto';
+import { Query as ExpressQuery } from 'express-serve-static-core'
 
 @Controller('chats')
 export class ChatsController {
   constructor(private readonly chatsService: ChatsService) {}
 
-  
+  @Get()
+  async findAll(@Query() query: ExpressQuery) {    
+    return await this.chatsService.findAll(query);
+  }
+
   @Get(':id')
-  findOne(@Param('id') id: string) {
-    console.log("FINDONE", id);
-    
+  findOne(@Param('id') id: string) {    
     return this.chatsService.findOne(id);
   }
 

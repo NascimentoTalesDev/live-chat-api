@@ -1,5 +1,6 @@
 import { Injectable } from "@nestjs/common";
 import { PrismaService } from "src/prisma/prisma.service";
+import { Query } from 'express-serve-static-core'
 
 @Injectable()
 export class ChatsRepository {
@@ -13,9 +14,36 @@ export class ChatsRepository {
     });
     return chatCreated;
   }
+  
+  async findAll(query: Query) {
+    const messages = await this.prismaService.chat.findMany({
+      where: {
+        OR: [
+          {
+            User: {
+              name: {
+                contains: query.search_query as string,
+                mode: 'insensitive'
+              }
+            }
+          }
+        ]
+      },
+      include:{
+        User: true,
+        messages: true
+      },
+      take: 10,
+      orderBy: {
+        User:{
+          name: "asc"
+        }
+      } 
+    });
+    return messages;
+  }
 
   async findOne(id: string) {
-    // Usando findUnique para garantir que estamos buscando um único chat
     try {
       const chat = await this.prismaService.chat.findFirst({
         where: {
@@ -32,7 +60,6 @@ export class ChatsRepository {
   }
 
   async findById(id: string) {
-    // Usando findUnique para garantir que estamos buscando um único chat
     try {
       const chat = await this.prismaService.chat.findUnique({
         where: {
@@ -46,7 +73,6 @@ export class ChatsRepository {
   }
 
   async findByUser(id: string) {
-    // Usando findUnique para garantir que estamos buscando um único chat
     try {
       const chat = await this.prismaService.chat.findFirst({
         where: {
@@ -56,11 +82,9 @@ export class ChatsRepository {
           messages: true
         }
       });
-      console.log(chat);
       return chat
     } catch (error) {
       console.log(error);
-      
     }
   }
 
