@@ -1,7 +1,8 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete } from '@nestjs/common';
+import { Controller, Get, Post, Body, Patch, Param, Delete, Query } from '@nestjs/common';
 import { MessagesService } from './messages.service';
 import { CreateMessageDto } from './dto/create-message.dto';
 import { UpdateMessageDto } from './dto/update-message.dto';
+import { Query as ExpressQuery } from 'express-serve-static-core'
 
 @Controller('messages')
 export class MessagesController {
@@ -13,8 +14,10 @@ export class MessagesController {
   }
 
   @Get()
-  findAll() {
-    return this.messagesService.findAll();
+  async findAll(@Query() query: ExpressQuery) {
+    console.log(query);
+    
+    return await this.messagesService.findAll(query);
   }
 
   @Get(':id')

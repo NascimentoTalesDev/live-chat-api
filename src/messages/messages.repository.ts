@@ -1,5 +1,6 @@
 import { Injectable } from "@nestjs/common";
 import { PrismaService } from "src/prisma/prisma.service";
+import { Query } from 'express-serve-static-core'
 
 @Injectable()
 export class MessagesRepository {
@@ -14,6 +15,27 @@ export class MessagesRepository {
       }
     })
     return messageCreated
+  }
+
+  async findAll(query: Query) {
+    const messages = await this.prismaService.message.findMany({
+      where: {
+        OR: [
+          {
+            sender: "attendant",
+            text: {
+              contains: query.search_query as string,
+              mode: 'insensitive'
+            }
+          }
+        ]
+      },
+      distinct: ['text'],
+      orderBy: {
+        text: 'asc'
+      } 
+    });
+    return messages;
   }
 
   // async update(id: string, userId: string, msg: string) {
@@ -45,7 +67,7 @@ export class MessagesRepository {
   //   return chatFinded
   // }
 
-  async findAll(chatId: string) {
+  async findAllByChatId(chatId: string) {
     try {
       const messages = await this.prismaService.message.findMany({
         where: {
